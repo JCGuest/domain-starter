@@ -7,17 +7,21 @@ import polygonLogo from './assets/polygonlogo.png';
 import ethLogo from './assets/ethlogo.png';
 import { networks } from './utils/networks';
 
+
 // Constants
 const TWITTER_HANDLE = 'johnguestdev';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 const tld = '.emoji'
-const CONTRACT_ADDRESS = '0x91b235B0da97b2215ADe051C4411BA5443ab1D1f';
+const CONTRACT_ADDRESS = '0xE918D7763A21Bb9B4F026fB9fb899d925d49DE4F';
 
 const App = () => {
 	const [currentAccount, setCurrentAccount] = useState('');
 	const [domain, setDomain] = useState('');
   	const [record, setRecord] = useState('');
 	const [network, setNetwork] = useState('');
+	const [editing, setEditing] = useState(false);
+	const [mints, setMints] = useState([]);
+	const [loading, setLoading] = useState(false);
 
 	  const connectWallet = async () => {
 		try {
@@ -37,35 +41,6 @@ const App = () => {
 		}
 	  }
 
-	  const checkIfWalletIsConnected = async () => {
-		const { ethereum } = window;
-
-		if (!ethereum) {
-			console.log('Make sure you have metamask!');
-			return;
-		} else {
-			console.log('We have the ethereum object', ethereum);
-		}
-		
-		const accounts = await ethereum.request({ method: 'eth_accounts' });
-
-		if (accounts.length !== 0) {
-			const account = accounts[0];
-			console.log('Found an authorized account:', account);
-			setCurrentAccount(account);
-		} else {
-			console.log('No authorized account found');
-		}
-		
-		const chainId = await ethereum.request({ method: 'eth_chainId' });
-		setNetwork(networks[chainId]);
-
-		ethereum.on('chainChanged', handleChainChanged);
-		
-		function handleChainChanged(_chainId) {
-			window.location.reload();
-		}
-	};
 
 	const switchNetwork = async () => {
 		if (window.ethereum) {
@@ -114,36 +89,103 @@ const App = () => {
 		// 3 chars = 0.5 MATIC, 4 chars = 0.3 MATIC, 5 or more = 0.1 MATIC
 		const price = domain.length === 3 ? '0.5' : domain.length === 4 ? '0.3' : '0.1';
 		console.log("Minting domain", domain, "with price", price);
-	  try {
-		const { ethereum } = window;
-		if (ethereum) {
-		  const provider = new ethers.providers.Web3Provider(ethereum);
-		  const signer = provider.getSigner();
-		  const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi.abi, signer);
+		try {
+			const { ethereum } = window;
+			if (ethereum) {
+				const provider = new ethers.providers.Web3Provider(ethereum);
+				const signer = provider.getSigner();
+				const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi.abi, signer);
+
 	
-				console.log("paying gas...")
-		  let tx = await contract.register(domain, {value: ethers.utils.parseEther(price)});
+				console.log("Going to pop wallet now to pay gas...")
+				  let tx = await contract.register(domain, {value: ethers.utils.parseEther(price)});
+				  // Wait for the transaction to be mined
 				const receipt = await tx.wait();
 	
+				// Check if the transaction was successfully completed
 				if (receipt.status === 1) {
-					console.log("domain minted! https://mumbai.polygonscan.com/tx/"+tx.hash);
+					console.log("Domain minted! https://mumbai.polygonscan.com/tx/"+tx.hash);
 					
+					// Set the record for the domain
 					tx = await contract.setRecord(domain, record);
 					await tx.wait();
 	
-					console.log("record set! https://mumbai.polygonscan.com/tx/"+tx.hash);
+					console.log("Record set! https://mumbai.polygonscan.com/tx/"+tx.hash);
 					
+					// Call fetchMints after 2 seconds
+					setTimeout(() => {
+						fetchMints();
+					}, 2000);
+	
 					setRecord('');
 					setDomain('');
+				} else {
+					alert("Transaction failed! Please try again");
 				}
-				else {
-					alert("rransaction failed! please try again");
-				}
+			}
+		  } catch(error) {
+			console.log(error);
+		  }
+	}
+
+	const renderMints = () => {
+		if (currentAccount && mints.length > 0) {
+			return (
+				<div className="mint-container">
+					<p className="subtitle"> Recently minted domains!</p>
+					<div className="mint-list">
+						{ mints.map((mint, index) => {
+							return (
+								<div className="mint-item" key={index}>
+									<div className='mint-row'>
+										<a className="link" href={`https://testnets.opensea.io/assets/mumbai/${CONTRACT_ADDRESS}/${mint.id}`} target="_blank" rel="noopener noreferrer">
+											<p className="underlined">{' '}{mint.name}{tld}{' '}</p>
+										</a>
+										{ mint.owner.toLowerCase() === currentAccount.toLowerCase() ?
+											<button className="edit-button" onClick={() => editRecord(mint.name)}>
+												<img className="edit-icon" src="https://img.icons8.com/metro/26/000000/pencil.png" alt="Edit button" />
+											</button>
+											:
+											null
+										}
+									</div>
+						<p> {mint.record} </p>
+					</div>)
+					})}
+				</div>
+			</div>);
 		}
-	  }
-	  catch(error){
-		console.log(error);
-	  }
+	};
+	
+	const editRecord = (name) => {
+		console.log("Editing record for", name);
+		setEditing(true);
+		setDomain(name);
+	}
+
+	const updateDomain = async () => {
+		if (!record || !domain) { return }
+		setLoading(true);
+		console.log("Updating domain", domain, "with record", record);
+		  try {
+			const { ethereum } = window;
+			if (ethereum) {
+				const provider = new ethers.providers.Web3Provider(ethereum);
+				const signer = provider.getSigner();
+				const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi.abi, signer);
+	
+				let tx = await contract.setRecord(domain, record);
+				await tx.wait();
+				console.log("Record set https://mumbai.polygonscan.com/tx/"+tx.hash);
+	
+				fetchMints();
+				setRecord('');
+				setDomain('');
+			}
+		  } catch(error) {
+			console.log(error);
+		  }
+		setLoading(false);
 	}
 
 	const renderNotConnectedContainer = () => (
@@ -155,11 +197,111 @@ const App = () => {
 		</div>
 	);
 
-	useEffect(() => {
-		checkIfWalletIsConnected();
-	})
+	const fetchMints = async () => {		
+		try {
+			const { ethereum } = window;
+			if (ethereum) {
+				const provider = new ethers.providers.Web3Provider(ethereum);
+				const signer = provider.getSigner();
+				const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi.abi, signer);
 
-	const renderInputForm = () => {
+				
+				console.log(contract);
+					
+				const names = await contract.getNames();
+
+				const mintRecords = await Promise.all(names.map(async (name) => {
+				  const mintRecord = await contract.records(name);
+				  const owner = await contract.domains(name);
+				  console.log(`${name} is owned by ${owner}`);
+				  return {
+					id: names.indexOf(name),
+					name: name,
+					record: mintRecord,
+					owner: owner,
+				  };
+			}));
+	
+			setMints(mintRecords);
+			}
+		} catch(error){
+			console.log(error);
+		}
+	}
+
+	useEffect(() => {
+		const fetchMints = async () => {		
+			try {
+				const { ethereum } = window;
+				if (ethereum) {
+					const provider = new ethers.providers.Web3Provider(ethereum);
+					const signer = provider.getSigner();
+					const contract = new ethers.Contract(CONTRACT_ADDRESS, contractAbi.abi, signer);
+	
+					
+					console.log(contract);
+						
+					const names = await contract.getNames();
+	
+					const mintRecords = await Promise.all(names.map(async (name) => {
+					  const mintRecord = await contract.records(name);
+					  const owner = await contract.domains(name);
+					  console.log(`${name} is owned by ${owner}`);
+					  return {
+						id: names.indexOf(name),
+						name: name,
+						record: mintRecord,
+						owner: owner,
+					  };
+				}));
+		
+				setMints(mintRecords);
+				}
+			} catch(error){
+				console.log(error);
+			}
+		}
+		if (network === 'Polygon Mumbai Testnet' && currentAccount) {
+			fetchMints();
+		}
+		
+	}, [currentAccount, network]);
+
+	useEffect(() => {
+		const checkIfWalletIsConnected = async () => {
+			const { ethereum } = window;
+	
+			if (!ethereum) {
+				console.log('Make sure you have metamask!');
+				return;
+			} else {
+				console.log('We have the ethereum object', ethereum);
+			}
+			
+			const accounts = await ethereum.request({ method: 'eth_accounts' });
+	
+			if (accounts.length !== 0) {
+				const account = accounts[0];
+				console.log('Found an authorized account:', account);
+				setCurrentAccount(account);
+			} else {
+				console.log('No authorized account found');
+			}
+			
+			const chainId = await ethereum.request({ method: 'eth_chainId' });
+			setNetwork(networks[chainId]);
+	
+			ethereum.on('chainChanged', handleChainChanged);
+			
+			function handleChainChanged(_chainId) {
+				window.location.reload();
+			}
+		};
+		checkIfWalletIsConnected();
+
+	}, []);
+
+	const renderInputForm = () =>{
 		if (network !== 'Polygon Mumbai Testnet') {
 			return (
 				<div className="connect-wallet-container">
@@ -175,25 +317,32 @@ const App = () => {
 					<input
 						type="text"
 						value={domain}
-						placeholder="domain"
+						placeholder='domain'
 						onChange={e => setDomain(e.target.value)}
 					/>
 					<p className='tld'> {tld} </p>
 				</div>
-	
+
 				<input
 					type="text"
 					value={record}
-					placeholder='whats ur fave emoji?'
+					placeholder='whats ur favorit emoji?'
 					onChange={e => setRecord(e.target.value)}
 				/>
-	
-				<div className="button-container">
-					<button className='cta-button mint-button' onClick={mintDomain}>
-						mint
-					</button> 
-				</div>
-	
+					{editing ? (
+						<div className="button-container">
+							<button className='cta-button mint-button' disabled={loading} onClick={updateDomain}>
+								Set record
+							</button>  
+							<button className='cta-button mint-button' onClick={() => {setEditing(false)}}>
+								Cancel
+							</button>  
+						</div>
+					) : (
+						<button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
+							Mint
+						</button>  
+					)}
 			</div>
 		);
 	}
@@ -216,10 +365,9 @@ const App = () => {
 				</header>
 			</div>
 				
-				
-				
-				{!currentAccount && renderNotConnectedContainer()}
-				{currentAccount && renderInputForm()}
+						{!currentAccount && renderNotConnectedContainer()}
+						{currentAccount && renderInputForm()}
+						{mints && renderMints()}
 
 		<div className="footer-container">
 					<img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
