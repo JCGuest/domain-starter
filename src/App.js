@@ -314,7 +314,6 @@ const App = () => {
 		return (
 			<div>
 				<div className='banner'>
-				{/* <img src="https://media.giphy.com/media/hXcEHA7zYRr4dUNQP8/giphy.gif" alt="gif" /> */}
 				</div>
 				<div className="form-container">
 					<div className="first-row">
@@ -330,7 +329,7 @@ const App = () => {
 					<input
 						type="text"
 						value={record}
-						placeholder='whats ur favorit emoji?'
+						placeholder='whats ur favorite emoji?'
 						onChange={e => setRecord(e.target.value)}
 					/>
 						{editing ? (
