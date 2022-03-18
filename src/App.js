@@ -312,37 +312,43 @@ const App = () => {
 		}
 
 		return (
-			<div className="form-container">
-				<div className="first-row">
+			<div>
+				<div className='banner'>
+				{/* <img src="https://media.giphy.com/media/hXcEHA7zYRr4dUNQP8/giphy.gif" alt="gif" /> */}
+				</div>
+				<div className="form-container">
+					<div className="first-row">
+						<input
+							type="text"
+							value={domain}
+							placeholder='domain'
+							onChange={e => setDomain(e.target.value)}
+						/>
+						<p className='tld'> {tld} </p>
+					</div>
+
 					<input
 						type="text"
-						value={domain}
-						placeholder='domain'
-						onChange={e => setDomain(e.target.value)}
+						value={record}
+						placeholder='whats ur favorit emoji?'
+						onChange={e => setRecord(e.target.value)}
 					/>
-					<p className='tld'> {tld} </p>
-				</div>
-
-				<input
-					type="text"
-					value={record}
-					placeholder='whats ur favorit emoji?'
-					onChange={e => setRecord(e.target.value)}
-				/>
-					{editing ? (
-						<div className="button-container">
-							<button className='cta-button mint-button' disabled={loading} onClick={updateDomain}>
-								Set record
+						{editing ? (
+							<div className="button-container">
+								<button className='cta-button mint-button' disabled={loading} onClick={updateDomain}>
+									Set record
+								</button>  
+								<button className='cta-button mint-button' onClick={() => {setEditing(false)}}>
+									Cancel
+								</button>  
+							</div>
+							
+						) : (
+							<button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
+								Mint
 							</button>  
-							<button className='cta-button mint-button' onClick={() => {setEditing(false)}}>
-								Cancel
-							</button>  
-						</div>
-					) : (
-						<button className='cta-button mint-button' disabled={loading} onClick={mintDomain}>
-							Mint
-						</button>  
-					)}
+						)}
+			</div>
 			</div>
 		);
 	}
